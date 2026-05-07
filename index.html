@@ -632,78 +632,13 @@
     </div>
 
     <script>
-        // DIRECT CONNECTION (Direct WebSocket without TikFinity wrapper)
-class DirectConnection {
-    constructor(wsUrl) {
-        this.wsUrl = wsUrl;
-        this.ws = null;
-        this.handlers = {};
-        this.uniqueId = null;
-    }
-    on(eventName, handler) {
-        if (!this.handlers[eventName]) this.handlers[eventName] = [];
-        this.handlers[eventName].push(handler);
-    }
-    emit(eventName, payload) {
-        const list = this.handlers[eventName] || [];
-        list.forEach(fn => {
-            try { fn(payload); } catch (e) { console.error(e); }
-        });
-    }
-    connect(uniqueId) {
-        this.uniqueId = uniqueId;
-        return new Promise((resolve, reject) => {
-            try {
-                this.ws = new WebSocket(this.wsUrl);
-            } catch (err) {
-                reject("Unable to open WebSocket.");
-                return;
-            }
-            const timeout = setTimeout(() => {
-                reject("Connection timeout.");
-            }, 15000);
-            this.ws.onopen = () => {
-                clearTimeout(timeout);
-                resolve({ roomId: uniqueId || "orender" });
-            };
-            this.ws.onerror = () => {
-                clearTimeout(timeout);
-                reject("WebSocket error.");
-            };
-            this.ws.onmessage = (evt) => {
-                let msg;
-                try { msg = JSON.parse(evt.data); } catch (_) { return; }
-                const eventName = (msg.event || msg.type || msg.eventType || "").toString().toLowerCase();
-                const data = msg.data || msg.payload || msg;
-                if (eventName) this.emit(eventName, data);
-            };
-            this.ws.onclose = () => {
-                this.emit("streamEnd", {});
-            };
-        });
-    }
-}
+        // Initialize connection to remote server using Socket.IO
+        let connection = new TikTokIOConnection("https://tiktok-chat-reader.zerody.one");
 
-// Initialize connection to remote server
-let connection = new DirectConnection("wss://tiktok-chat-reader.zerody.one");
-
-// Connect button handler
-$("#connectButton").click(connect);
-
-// Define connect function
-function connect() {
-    const uniqueId = $("#uniqueIdInput").val() || null;
-    connection.connect(uniqueId)
-        .then(res => {
-            console.log("Conectado a", res);
-            $("#stateText").text("Conectado: " + (uniqueId || "anon"));
-        })
-        .catch(err => {
-            console.error(err);
-            $("#stateText").text("Error: " + err);
+        $(document).ready(() => {
+            $("#connectButton").click(connect);
+            $("#uniqueIdInput").on("keyup", e => { if (e.key === "Enter") connect(); });
         });
-}
-        $("#uniqueIdInput").on("keyup", e => { if (e.key === "Enter") connect(); });
 
 
 
@@ -858,7 +793,7 @@ function connect() {
             let username = $("#uniqueIdInput").val().trim().replace("@", "");
             if (!username) return alert("Escribe un usuario.");
             $("#stateText").html("Conectando...");
-            connection.connect(username).then(state => {
+            connection.connect(username, { enableExtendedGiftInfo: true }).then(state => {
                 $("#stateText").html(`Conectado → ${state.roomId}`);
             }).catch(err => {
                 $("#stateText").html("Error: " + err);
