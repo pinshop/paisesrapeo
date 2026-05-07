@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>TikTok LIVE - Rosquilla + Quiereme + Capybara + Células + Agua + MEWING</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script src="connection.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000000;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        .inputFields {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 12px 0;
+            background: rgba(0, 0, 0, 0.75);
+            text-align: center;
+            z-index: 20;
+            color: white;
+        }
+
+        .inputFields input {
+            padding: 6px 10px;
+            font-size: 1em;
+            margin: 2px;
+        }
+
+        #stateText {
+            margin-top: 5px;
+            font-size: 14px;
+        }
+
+        #zona {
+            position: relative;
+            aspect-ratio: 9/16;
+            height: 85vh;
+            margin: 120px auto 0;
+            background: #000000;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        /* COMENTARIOS */
+        .comment {
+            position: absolute;
+            padding: 8px 14px;
+            background: rgba(255, 255, 0, 0.85);
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            white-space: nowrap;
+            animation: fadeUp 3s forwards;
+        }
+
+        .comment img {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        @keyframes fadeUp {
+            0% {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+
+            15% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-80px);
+            }
+        }
+
+        /* LLUVIA GENERAL */
+        .rosquilla-item,
+        .quiereme-item,
+        .avena-item,
+        .agua-item,
+        .celula-profile {
+            position: absolute;
+            pointer-events: none;
+            user-select: none;
+            animation: fall linear forwards;
+            z-index: 10;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-150px) rotate(0deg);
+            }
+
+            100% {
+                transform: translateY(calc(100vh + 150px)) rotate(1080deg);
+            }
+        }
+
+        /* CÉLULAS */
+        .celula-profile {
+            border-radius: 50%;
+            border: 4px solid #00ffff;
+            box-shadow: 0 0 20px #00ffff, inset 0 0 15px rgba(0, 255, 255, 0.4);
+            animation: celulaFall linear forwards;
+        }
+
+        @keyframes celulaFall {
+            0% {
+                transform: translateY(-120px) rotate(0deg) scale(0.6);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(calc(100vh + 100px)) rotate(720deg) scale(1);
+                opacity: 0.7;
+            }
+        }
+
+        /* NOMBRE CENTRO */
+        .gift-sender {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5em;
+            font-weight: 900;
+            color: #FF4500;
+            text-shadow: 0 0 20px #fff, 0 0 40px #FF4500, 0 0 80px #FF4500;
+            z-index: 15;
+            pointer-events: none;
+            animation: popName 4s forwards;
+            white-space: nowrap;
+        }
+
+        @keyframes popName {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.2);
+            }
+
+            15% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+
+            75% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+        }
+
+        /* TEXTOS ABAJO */
+        .bottom-info {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 25;
+            pointer-events: none;
+            width: 90%;
+        }
+
+        .countdown-number {
+            font-size: 4.2em;
+            font-weight: 900;
+            color: white;
+            text-shadow: -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000;
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        .descanso-text {
+            font-size: 1.9em;
+            font-weight: 900;
+            color: white;
+            text-shadow: -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000;
+            margin-top: -8px;
+        }
+
+        .bottom-donor-name {
+            font-size: 2.4em;
+            font-weight: 900;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 28px;
+            border-radius: 50px;
+            text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+            margin: 6px auto;
+            display: inline-block;
+            animation: bottomFade 5s forwards;
+        }
+
+        @keyframes bottomFade {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            10% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            90% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-15px);
+            }
+        }
+
+        @keyframes pulse {
+            from {
+                transform: scale(1);
+            }
+
+            to {
+                transform: scale(1.08);
+            }
+        }
+
+        /* === NUEVO EFECTO MEWING === */
+        .mewing-gif {
+            position: absolute;
+            top: -300px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 340px;
+            max-width: 80vw;
+            pointer-events: none;
+            z-index: 30;
+            animation: mewingDrop 5.2s forwards;
+            filter: drop-shadow(0 0 30px #ffffff) drop-shadow(0 0 70px #a020f0);
+            border-radius: 20px;
+        }
+
+        @keyframes mewingDrop {
+            0% {
+                top: -300px;
+                opacity: 0;
+                transform: translateX(-50%) scale(0.6);
+            }
+
+            18% {
+                top: 50%;
+                opacity: 1;
+                transform: translateX(-50%) translateY(-50%) scale(1.15);
+            }
+
+            22% {
+                transform: translateX(-50%) translateY(-50%) scale(1);
+            }
+
+            75% {
+                top: 50%;
+                opacity: 1;
+                transform: translateX(-50%) translateY(-50%) scale(1);
+            }
+
+            100% {
+                top: 50%;
+                opacity: 0;
+                transform: translateX(-50%) translateY(-50%) scale(0.8);
+            }
+        }
+
+        /* BANDERAS */
+        .flags-container {
+            position: absolute;
+            top: 5%;
+            height: 90%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        #leftFlagsContainer {
+            left: 10px;
+            transform-origin: center left;
+        }
+
+        #rightFlagsContainer {
+            right: 10px;
+            left: auto;
+            align-items: flex-end;
+            transform-origin: center right;
+        }
+
+        .flag-item {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            height: 11%;
+        }
+
+        .flag-item img:first-child {
+            width: 7.5vh;
+            height: 7.5vh;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+            cursor: move;
+            border: 2px solid white;
+        }
+
+        .flag-item .counter {
+            position: relative;
+            z-index: 2;
+            color: white;
+            font-size: 4.5vh;
+            font-weight: 900;
+            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+            transition: transform 0.1s;
+            pointer-events: none;
+            min-width: 40px;
+            text-align: center;
+            margin: 0 -15px;
+        }
+
+        .flag-particle {
+            position: absolute;
+            z-index: 30;
+            pointer-events: none;
+            font-size: 40px;
+            animation: particlePop 0.8s ease-out forwards;
+        }
+
+        @keyframes particlePop {
+            0% {
+                transform: translate(0, 0) scale(0.5);
+                opacity: 1;
+            }
+
+            50% {
+                transform: translate(calc(var(--tx)*0.5), calc(var(--ty)*0.5)) scale(1.5);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(var(--tx), var(--ty)) scale(0);
+                opacity: 0;
+            }
+        }
+
+        @keyframes lavaPulse {
+            0% {
+                box-shadow: 0 0 15px 5px rgba(255, 0, 0, 0.8), 0 0 30px 10px rgba(255, 165, 0, 0.6);
+                border-color: #ff0000;
+            }
+
+            50% {
+                box-shadow: 0 0 25px 10px rgba(255, 140, 0, 0.9), 0 0 50px 20px rgba(255, 255, 0, 0.7);
+                border-color: #ffff00;
+            }
+
+            100% {
+                box-shadow: 0 0 15px 5px rgba(255, 0, 0, 0.8), 0 0 30px 10px rgba(255, 165, 0, 0.6);
+                border-color: #ff0000;
+            }
+        }
+
+        .leader-flag img:first-child {
+            border-color: transparent !important;
+            animation: lavaPulse 1s infinite alternate;
+        }
+
+        /* NUEVOS ESTILOS */
+        .aviso-pais {
+            color: yellow;
+            font-size: 1.4vh;
+            font-weight: 900;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 50px;
+            animation: slideUp 0.5s forwards;
+            pointer-events: none;
+        }
+
+        .aviso-pais.fade-out {
+            opacity: 0;
+            transition: opacity 1s;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .custom-timer {
+            position: absolute;
+            color: white;
+            font-size: 6vh;
+            font-weight: 900;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 15px;
+            border: 2px solid white;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+            z-index: 40;
+            cursor: move;
+            user-select: none;
+        }
+
+        /* PODIO */
+        .podio-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            animation: fadeIn 0.5s;
+        }
+
+        .podio-flex {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 30px;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .podio-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100px;
+            animation: slideUpPodio 1s ease-out forwards;
+            opacity: 0;
+        }
+
+        .podio-col.p2 {
+            animation-delay: 0.6s;
+        }
+
+        .podio-col.p1 {
+            animation-delay: 1.2s;
+        }
+
+        .podio-col.p3 {
+            animation-delay: 0s;
+        }
+
+        @keyframes slideUpPodio {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        body.is-fullscreen .inputFields {
+            display: none !important;
+        }
+
+        body.is-fullscreen #camSettingsPanel {
+            display: none !important;
+        }
+
+        body.is-fullscreen #exitFullscreenBtn {
+            display: block !important;
+        }
+
+        .mobile-selected {
+            outline: 3px dashed #00FF00 !important;
+            background: rgba(0, 255, 0, 0.2) !important;
+            z-index: 9999 !important;
+            border-radius: 10px;
+        }
+
+        .draggable-item {
+            cursor: move;
+        }
+
+        /* MVP Y FUEGOS ARTIFICIALES */
+        .mvp-rain-item {
+            position: absolute;
+            color: #FFD700;
+            font-size: 3vh;
+            font-weight: 900;
+            text-shadow: 2px 2px 0 #000, 0 0 10px #FFD700;
+            animation: fallRain 4s linear forwards;
+            pointer-events: none;
+            z-index: 200;
+        }
+
+        .firework {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 150;
+            animation: explode 1s ease-out forwards;
+        }
+
+        @keyframes fallRain {
+            0% {
+                transform: translateY(-50px);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(110vh);
+                opacity: 0;
+            }
+        }
+
+        @keyframes explode {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(15);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="inputFields">
+        <p>Escribe el <b>@usuario</b> en vivo:</p>
+        <input type="text" id="uniqueIdInput" placeholder="@nombre">
+        <input type="button" id="connectButton" value="Conectar">
+        <input type="button" id="cameraButton" value="📷">
+        <input type="button" id="camSettingsBtn" value="⚙️">
+        <input type="button" id="fullscreenButton" value="⤢">
+        <input type="button" id="generateOverlayBtn" value="🔗 Generar Overlay">
+        <label style="margin-left: 10px;">Tamaño banderas: <input type="range" id="flagsScale" min="0.5" max="3"
+                step="0.1" value="0.85"></label>
+        <select id="timerMinutes" style="margin-left: 10px;">
+            <option value="5">5 min</option>
+            <option value="10">10 min</option>
+            <option value="20">20 min</option>
+            <option value="30">30 min</option>
+        </select>
+        <input type="button" id="addTimerBtn" value="Agregar contador">
+        <div id="stateText"></div>
+    </div>
+
+    <div id="camSettingsPanel"
+        style="display:none; position:absolute; top:60px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.9); padding:20px; border:2px solid white; border-radius:10px; color:white; z-index:150; text-align:center;">
+        <h4 style="margin-top:0;">Ajustes de Cámara</h4>
+        <button id="rotateCamBtn" style="padding:5px 10px; margin:5px; font-size:16px;">Rotar 90°</button>
+        <button id="mirrorCamBtn" style="padding:5px 10px; margin:5px; font-size:16px;">Modo Espejo</button>
+        <br><br>
+        <button onclick="$('#camSettingsPanel').hide()"
+            style="padding:5px 10px; font-size:14px; background:red; color:white; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+    </div>
+
+
+
+    <div id="zona">
+        <video id="videoElement" autoplay playsinline
+            style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:0;"></video>
+
+        <div id="leftFlagsContainer" class="flags-container draggable-item"></div>
+        <div id="rightFlagsContainer" class="flags-container draggable-item"></div>
+
+        <div id="avisoContainer" class="draggable-item"
+            style="position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: move;">
+        </div>
+
+        <div class="bottom-info">
+            <div class="countdown-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // CONEXIÓN (TikFinity local WebSocket)
+        class TikFinityConnection {
+            constructor(wsUrl) {
+                this.wsUrl = wsUrl;
+                this.ws = null;
+                this.handlers = {};
+                this.uniqueId = null;
+            }
+
+            on(eventName, eventHandler) {
+                if (!this.handlers[eventName]) this.handlers[eventName] = [];
+                this.handlers[eventName].push(eventHandler);
+            }
+
+            emitLocal(eventName, payload) {
+                const list = this.handlers[eventName] || [];
+                list.forEach(fn => {
+                    try { fn(payload); } catch (e) { console.error(e); }
+                });
+            }
+
+            connect(uniqueId) {
+                this.uniqueId = uniqueId;
+
+                return new Promise((resolve, reject) => {
+                    try {
+                        this.ws = new WebSocket(this.wsUrl);
+                    } catch (err) {
+                        reject("No se pudo abrir WebSocket de TikFinity.");
+                        return;
+                    }
+
+                    const timeout = setTimeout(() => {
+                        reject("Timeout conectando a TikFinity.");
+                    }, 15000);
+
+                    this.ws.onopen = () => {
+                        // TikFinity suele estar ya conectado desde la app desktop.
+                        // Enviamos mensajes de conexión opcionales por compatibilidad.
+                        const connectMsgs = [
+                            { action: "connect", uniqueId: uniqueId },
+                            { event: "setUniqueId", uniqueId: uniqueId },
+                            { type: "setUniqueId", uniqueId: uniqueId }
+                        ];
+                        connectMsgs.forEach(msg => {
+                            try { this.ws.send(JSON.stringify(msg)); } catch (_) { }
+                        });
+
+                        clearTimeout(timeout);
+                        resolve({ roomId: uniqueId || "tikfinity-local" });
+                    };
+
+                    this.ws.onerror = () => {
+                        clearTimeout(timeout);
+                        reject("Error de conexión con TikFinity. Verifica que la app esté abierta.");
+                    };
+
+                    this.ws.onmessage = (evt) => {
+                        let msg;
+                        try {
+                            msg = JSON.parse(evt.data);
+                        } catch (_) {
+                            return;
+                        }
+
+                        const eventName = (msg.event || msg.type || msg.eventType || "").toString().toLowerCase();
+                        const data = msg.data || msg.payload || msg;
+                        const normalized = this.normalizeEvent(eventName, data);
+                        if (!normalized) return;
+                        this.emitLocal(normalized.name, normalized.data);
+                    };
+
+                    this.ws.onclose = () => {
+                        this.emitLocal("streamEnd", {});
+                    };
+                });
+            }
+
+            normalizeEvent(eventName, data) {
+                const uniqueId = data.uniqueId || data.username || data.user || data.userName || "";
+                const nickname = data.nickname || data.nickName || uniqueId || "Usuario";
+                const profilePictureUrl = data.profilePictureUrl || data.profilePic || data.avatar || "";
+
+                if (eventName.includes("chat") || eventName.includes("comment")) {
+                    return {
+                        name: "chat",
+                        data: {
+                            uniqueId,
+                            nickname,
+                            profilePictureUrl,
+                            comment: data.comment || data.message || data.text || ""
+                        }
+                    };
+                }
+
+                if (eventName.includes("gift")) {
+                    return {
+                        name: "gift",
+                        data: {
+                            uniqueId,
+                            nickname,
+                            profilePictureUrl,
+                            giftId: Number(data.giftId ?? data.gift_id ?? data.id ?? 0),
+                            repeatCount: Number(data.repeatCount ?? data.repeat_count ?? data.count ?? 1),
+                            repeatEnd: Boolean(data.repeatEnd ?? data.repeat_end ?? false)
+                        }
+                    };
+                }
+
+                if (eventName.includes("like")) {
+                    return {
+                        name: "like",
+                        data: {
+                            uniqueId,
+                            likeCount: Number(data.likeCount ?? data.count ?? data.likes ?? 1)
+                        }
+                    };
+                }
+
+                if (eventName.includes("follow")) {
+                    return { name: "follow", data: { uniqueId } };
+                }
+
+                if (eventName.includes("share")) {
+                    return { name: "share", data: { uniqueId } };
+                }
+
+                return null;
+            }
+        }
+
+        let connection = new TikFinityConnection("ws://127.0.0.1:21213/");
+
+        $("#connectButton").click(connect);
+        $("#uniqueIdInput").on("keyup", e => { if (e.key === "Enter") connect(); });
+
+        let camRot = 0;
+        let camMirror = false;
+
+        function applyCamTransform() {
+            let scaleX = camMirror ? -1 : 1;
+            let rot = camRot;
+
+            if (rot % 180 !== 0) {
+                let cw = $('#zona').width();
+                let ch = $('#zona').height();
+                $('#videoElement').css({
+                    width: ch + 'px',
+                    height: cw + 'px',
+                    left: (cw - ch) / 2 + 'px',
+                    top: (ch - cw) / 2 + 'px',
+                    transform: `rotate(${rot}deg) scaleX(${scaleX})`
+                });
+            } else {
+                $('#videoElement').css({
+                    width: '100%',
+                    height: '100%',
+                    left: '0',
+                    top: '0',
+                    transform: `rotate(${rot}deg) scaleX(${scaleX})`
+                });
+            }
+        }
+
+        $(window).resize(() => applyCamTransform());
+
+        $("#camSettingsBtn").click(() => $("#camSettingsPanel").toggle());
+        $("#rotateCamBtn").click(() => { camRot = (camRot + 90) % 360; applyCamTransform(); });
+        $("#mirrorCamBtn").click(() => { camMirror = !camMirror; applyCamTransform(); });
+
+        $("#cameraButton").click(async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const videoElement = document.getElementById('videoElement');
+                videoElement.srcObject = stream;
+                applyCamTransform();
+            } catch (err) {
+                alert("Error al activar la cámara: " + err.message);
+            }
+        });
+
+        $("#fullscreenButton").click(() => {
+            let elem = document.documentElement;
+            if (elem.requestFullscreen) elem.requestFullscreen();
+            else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+            else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+        });
+
+        $("#exitFullscreenBtn").click(() => {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            else if (document.msExitFullscreen) document.msExitFullscreen();
+        });
+
+        function syncFullscreenState() {
+            if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+                $("body").addClass("is-fullscreen");
+            } else {
+                $("body").removeClass("is-fullscreen");
+            }
+        }
+        document.addEventListener('fullscreenchange', syncFullscreenState);
+        document.addEventListener('webkitfullscreenchange', syncFullscreenState);
+
+        let mobileSelected = null;
+        let isDraggingMobile = false;
+        let touchStartX = 0, touchStartY = 0;
+        let initialLeft = 0, initialTop = 0;
+
+        $(document).on("click", ".draggable-item", function (e) {
+            if (window.innerWidth > 900) return;
+            e.stopPropagation();
+            if (mobileSelected === this) {
+                $(this).removeClass("mobile-selected");
+                mobileSelected = null;
+            } else {
+                $(".draggable-item").removeClass("mobile-selected");
+                mobileSelected = this;
+                $(this).addClass("mobile-selected");
+            }
+        });
+
+        $(document).on("click", function (e) {
+            if (window.innerWidth > 900) return;
+            if (!$(e.target).closest(".draggable-item").length && mobileSelected) {
+                $(mobileSelected).removeClass("mobile-selected");
+                mobileSelected = null;
+            }
+        });
+
+        $(document).on("touchstart", function (e) {
+            if (window.innerWidth > 900 || !mobileSelected) return;
+            isDraggingMobile = true;
+            let touch = e.originalEvent.touches[0] || e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+
+            let rect = mobileSelected.getBoundingClientRect();
+            initialLeft = rect.left;
+            initialTop = rect.top;
+        });
+
+        $(document).on("touchmove", function (e) {
+            if (window.innerWidth > 900 || !isDraggingMobile || !mobileSelected) return;
+            e.preventDefault();
+            let touch = e.originalEvent.touches[0] || e.touches[0];
+            $(mobileSelected).css({
+                left: (initialLeft + (touch.clientX - touchStartX)) + 'px',
+                top: (initialTop + (touch.clientY - touchStartY)) + 'px',
+                right: 'auto', bottom: 'auto', transform: 'none'
+            });
+        }, { passive: false });
+
+        $(document).on("touchend", () => { isDraggingMobile = false; });
+
+        function connect() {
+            let username = $("#uniqueIdInput").val().trim().replace("@", "");
+            if (!username) return alert("Escribe un usuario.");
+            $("#stateText").html("Conectando...");
+            connection.connect(username).then(state => {
+                $("#stateText").html(`Conectado → ${state.roomId}`);
+            }).catch(err => {
+                $("#stateText").html("Error: " + err);
+            });
+        }
+
+        // COMENTARIOS
+        const countryMap = {
+            "colombia": "colombia",
+            "guatemala": "guatemala", "guate": "guatemala",
+            "mexico": "mexico", "méxico": "mexico",
+            "salvador": "salvador", "el salvador": "salvador",
+            "chile": "chile",
+            "nicaragua": "nicaragua",
+            "cuba": "cuba",
+            "dominicana": "dominicana", "republica dominicana": "dominicana", "república dominicana": "dominicana",
+            "ecuador": "ecuador",
+            "venezuela": "venezuela",
+            "bolivia": "bolivia",
+            "costa rica": "costarica", "costarica": "costarica",
+            "honduras": "honduras",
+            "panama": "panama", "panamá": "panama",
+            "uruguay": "uruguay",
+            "argentina": "argentina",
+            "peru": "peru", "perú": "peru",
+            "paraguay": "paraguay"
+        };
+        const userCountries = {};
+
+        const countryIso = {
+            'colombia': 'co', 'guatemala': 'gt', 'mexico': 'mx', 'salvador': 'sv',
+            'chile': 'cl', 'nicaragua': 'ni', 'cuba': 'cu', 'dominicana': 'do',
+            'ecuador': 'ec', 'venezuela': 've', 'bolivia': 'bo', 'costarica': 'cr',
+            'honduras': 'hn', 'panama': 'pa', 'uruguay': 'uy', 'argentina': 'ar', 'peru': 'pe', 'paraguay': 'py'
+        };
+
+        function mostrarAvisoPais(nickname, countryName) {
+            const $aviso = $('<div class="aviso-pais"></div>');
+            $aviso.html(`<b>${nickname}</b> se ha unido a <b>${countryName.toUpperCase()}</b>`);
+            $("#avisoContainer").append($aviso);
+
+            setTimeout(() => {
+                $aviso.addClass("fade-out");
+                setTimeout(() => $aviso.remove(), 1000);
+            }, 4000);
+        }
+
+        function createComment(username, profilePic, text) {
+            const zona = document.getElementById("zona");
+            const div = document.createElement("div");
+            div.className = "comment";
+            div.innerHTML = `<img src="${profilePic}">${username}: ${text}`;
+            zona.appendChild(div);
+            div.style.left = Math.random() * (zona.clientWidth - 280) + "px";
+            div.style.top = (zona.clientHeight - 50) + "px";
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        connection.on("chat", data => {
+            createComment(data.nickname, data.profilePictureUrl, data.comment);
+
+            const text = data.comment.toLowerCase();
+            for (const [name, code] of Object.entries(countryMap)) {
+                if (text.includes(name)) {
+                    userCountries[data.uniqueId] = code;
+                    mostrarAvisoPais(data.nickname, name);
+                    break;
+                }
+            }
+        });
+
+        // DETECCIÓN DE REGALOS (manejo robusto de ráfagas/progresivo)
+        const giftPoints = {
+            5655: 1, 7096: 1, 15231: 1, 15232: 1, 5269: 1, 7032: 1, 15933: 1, 5827: 1, 8239: 1,
+            5487: 7,
+            7934: 20, 5658: 20,
+            14488: 32, 5879: 30,
+            5582: 120, 12988: 120, 5660: 120, 6427: 100, 7569: 120,
+            11046: 1200
+        };
+        const giftProgress = {};
+
+        const giftToTeam = {
+            5655: 'colombia',
+            5269: 'guatemala',
+            19438: 'mexico',
+            6064: 'salvador',
+            15232: 'chile',
+            6788: 'nicaragua',
+            19441: 'cuba',
+            19439: 'dominicana',
+            6784: 'ecuador',
+            15231: 'venezuela',
+            15104: 'bolivia',
+            8239: 'costarica',
+            7096: 'honduras',
+            7032: 'panama',
+            5827: 'uruguay',
+            19446: 'argentina',
+            13651: 'peru',
+            58485: 'paraguay'
+        };
+
+        connection.on("gift", data => {
+            const giftId = Number(data.giftId);
+            const repeatCountRaw = Number(data.repeatCount);
+            const repeatCount = Number.isFinite(repeatCountRaw) && repeatCountRaw > 0 ? repeatCountRaw : 1;
+            const key = `${data.uniqueId}:${giftId}`;
+            const previous = giftProgress[key] || 0;
+            const deltaCount = Math.max(0, repeatCount - previous);
+
+            if (deltaCount > 0) {
+                giftProgress[key] = repeatCount;
+            }
+
+            try {
+                let isSpecificGift = false;
+
+                // Verificar si es un regalo específico para un equipo
+                if (giftToTeam[giftId]) {
+                    const teamCode = giftToTeam[giftId];
+                    if (userCountries[data.uniqueId] !== teamCode) {
+                        userCountries[data.uniqueId] = teamCode;
+                        const countryName = Object.keys(countryMap).find(k => countryMap[k] === teamCode) || teamCode;
+                        mostrarAvisoPais(data.nickname, countryName);
+                    }
+
+                    if (deltaCount > 0) {
+                        addPointToFlag(teamCode, deltaCount); // 1 punto por cada unidad de este regalo
+                    }
+                    isSpecificGift = true;
+                }
+
+                if (isSpecificGift) return; // Si era regalo específico, ya sumó a su equipo
+
+                // Regalos especiales
+                if (giftId === 7168 && deltaCount > 0) {
+                    const myCode = userCountries[data.uniqueId];
+                    if (myCode) {
+                        $(".flag-item").each(function () {
+                            const code = $(this).attr("data-code");
+                            if (code !== myCode) {
+                                $(this).find(".counter").text("0");
+                            }
+                        });
+                        checkLeader();
+                    }
+                    return;
+                }
+
+                if (giftId === 6646 && deltaCount > 0) {
+                    showFireworksMVP(data.nickname);
+                    return;
+                }
+
+                if (giftId === 7934 && deltaCount > 0) {
+                    showQuieremeRain(deltaCount);
+                }
+
+                // Fallback para equipos (requiere estar en un club)
+                const code = userCountries[data.uniqueId];
+                if (!code) return;
+
+                const pointsPerGift = giftPoints[giftId];
+                if (!pointsPerGift) return;
+
+                if (deltaCount > 0) {
+                    addPointToFlag(code, deltaCount * pointsPerGift);
+                    
+                    if (giftId === 5879 || pointsPerGift === 120) {
+                        new Audio('point.mp3').play().catch(e => console.log("Audio error:", e));
+                    } else if (pointsPerGift > 30) {
+                        new Audio('turbo.mp3').play().catch(e => console.log("Audio error:", e));
+                    }
+                }
+            } finally {
+                // Cuando la plataforma marca fin de ráfaga, reiniciamos estado para próxima ráfaga.
+                if (data.repeatEnd) {
+                    delete giftProgress[key];
+                }
+            }
+        });
+
+        let userLikes = {};
+        connection.on('like', data => {
+            const code = userCountries[data.uniqueId];
+            if (!code) return;
+
+            let previousLikes = userLikes[data.uniqueId] || 0;
+            let newLikes = previousLikes + data.likeCount;
+
+            // Sum 1 point per 100 taps
+            let newPoints = Math.floor(newLikes / 100) - Math.floor(previousLikes / 100);
+
+            if (newPoints > 0) {
+                addPointToFlag(code, newPoints);
+            }
+            userLikes[data.uniqueId] = newLikes;
+        });
+
+        connection.on('follow', data => {
+            const code = userCountries[data.uniqueId];
+            if (code) {
+                addPointToFlag(code, 5);
+            }
+        });
+
+        connection.on('share', data => {
+            // Compartir live NO suma puntos.
+        });
+
+        // === INICIALIZACIÓN BANDERAS ===
+        const leftFlags = ['colombia', 'guatemala', 'mexico', 'salvador', 'chile', 'nicaragua', 'cuba', 'dominicana', 'paraguay'];
+        const rightFlags = ['ecuador', 'venezuela', 'bolivia', 'costarica', 'honduras', 'panama', 'uruguay', 'argentina', 'peru'];
+
+        const leftTeamGifts = {
+            'colombia': 'rose',
+            'guatemala': 'tiktok',
+            'mexico': 'pop',
+            'salvador': 'gg',
+            'chile': 'increible',
+            'nicaragua': 'glow',
+            'cuba': 'freestyle',
+            'dominicana': 'oldies',
+            'paraguay': 'star'
+        };
+
+        const rightTeamGifts = {
+            'ecuador': 'cake',
+            'venezuela': 'teadoro',
+            'bolivia': 'alas',
+            'costarica': 'blanca',
+            'honduras': 'mazorca',
+            'panama': 'maracas',
+            'uruguay': 'cono',
+            'argentina': 'wink',
+            'peru': 'popular'
+        };
+
+        const $leftCol = $("#leftFlagsContainer");
+        const $rightCol = $("#rightFlagsContainer");
+
+        leftFlags.forEach(code => {
+            const giftImg = leftTeamGifts[code];
+            $leftCol.append(`
+        <div class="flag-item" data-code="${code}" id="flag-${code}">
+            <div style="position: relative; height: 100%; display: flex; align-items: center; justify-content: center;">
+                <img src="https://flagcdn.com/w160/${countryIso[code]}.png" alt="${code}">
+                <img src="${giftImg}.png" alt="${giftImg}" style="position: absolute; top: -20%; right: -25%; height: 75%; border-radius: 0; box-shadow: none; transform: none; pointer-events: none; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.4)); z-index: 10;">
+                <div class="crown-badge" style="position: absolute; top: -35%; left: 50%; transform: translateX(-50%); font-size: 5vh; text-shadow: 0 0 15px #FFD700, 2px 2px 0 #000, -2px -2px 0 #000; display: none; z-index: 20; pointer-events: none;">👑</div>
+            </div>
+            <span class="counter">0</span>
+        </div>
+    `);
+        });
+
+        rightFlags.forEach(code => {
+            const giftImg = rightTeamGifts[code];
+            $rightCol.append(`
+        <div class="flag-item" data-code="${code}" id="flag-${code}" style="flex-direction: row-reverse;">
+            <div style="position: relative; height: 100%; display: flex; align-items: center; justify-content: center;">
+                <img src="https://flagcdn.com/w160/${countryIso[code]}.png" alt="${code}">
+                <img src="${giftImg}.png" alt="${giftImg}" style="position: absolute; top: -20%; left: -25%; height: 75%; border-radius: 0; box-shadow: none; transform: none; pointer-events: none; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.4)); z-index: 10;">
+                <div class="crown-badge" style="position: absolute; top: -35%; left: 50%; transform: translateX(-50%); font-size: 5vh; text-shadow: 0 0 15px #FFD700, 2px 2px 0 #000, -2px -2px 0 #000; display: none; z-index: 20; pointer-events: none;">👑</div>
+            </div>
+            <span class="counter">0</span>
+        </div>
+    `);
+        });
+
+        // Hacer dragging de las banderas
+        $("#leftFlagsContainer, #rightFlagsContainer").draggable({ handle: "img" });
+        $("#avisoContainer").draggable();
+
+        // Escala con JS slider
+        $("#flagsScale").on("input", function () {
+            $("#leftFlagsContainer, #rightFlagsContainer").css("transform", `scale(${$(this).val()})`);
+        });
+
+        // CONTADOR GLOBAL AUTOMATICO DE 15 MINUTOS Y PODIO
+        let globalTimerInterval = null;
+        let globalTimerSeconds = 900; // 15 minutos por defecto
+
+        function iniciarTemporizadorGlobal() {
+            if (globalTimerInterval) clearInterval(globalTimerInterval);
+            globalTimerSeconds = 900;
+
+            let $timerDiv = $("#globalAutoTimer");
+            if ($timerDiv.length === 0) {
+                // UI del timer global
+                $timerDiv = $('<div id="globalAutoTimer" class="custom-timer draggable-item" style="cursor: move; box-shadow: 0 0 20px #FFD700; border: 3px solid white; z-index: 50; text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;"></div>');
+                $("body").append($timerDiv);
+                $timerDiv.draggable();
+                $timerDiv.css({ bottom: '2%', top: 'auto', left: '50%', transform: 'translateX(-50%)', fontSize: '3.5vh', padding: '5px 15px' });
+            }
+            $timerDiv.text(formatTime(globalTimerSeconds));
+
+            globalTimerInterval = setInterval(() => {
+                globalTimerSeconds--;
+                if (globalTimerSeconds <= 0) {
+                    clearInterval(globalTimerInterval);
+                    $timerDiv.text("00:00");
+                    mostrarPodio();
+                } else {
+                    $timerDiv.text(formatTime(globalTimerSeconds));
+                }
+            }, 1000);
+        }
+
+        // CONTADORES CUSTOMIZADOS
+        function formatTime(totalSec) {
+            let m = Math.floor(totalSec / 60);
+            let s = totalSec % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        $("#addTimerBtn").click(() => {
+            let min = parseInt($("#timerMinutes").val(), 10);
+            let sec = min * 60;
+
+            const $timerDiv = $('<div class="custom-timer draggable-item"></div>');
+            $timerDiv.text(formatTime(sec));
+            $("body").append($timerDiv);
+
+            $timerDiv.draggable();
+            $timerDiv.css({ top: '20%', left: '10%' });
+
+            const interval = setInterval(() => {
+                sec--;
+                if (sec < 0) {
+                    clearInterval(interval);
+                    $timerDiv.text("00:00");
+                    setTimeout(() => $timerDiv.remove(), 1000);
+                    mostrarPodio();
+                    return;
+                }
+                $timerDiv.text(formatTime(sec));
+            }, 1000);
+
+            $timerDiv.dblclick(() => {
+                clearInterval(interval);
+                $timerDiv.remove();
+            });
+        });
+
+        function mostrarPodio() {
+            // Gather flag scores
+            let scores = [];
+            $(".flag-item").each(function () {
+                const code = $(this).attr("data-code");
+                const pts = parseInt($(this).find(".counter").text(), 10) || 0;
+                scores.push({ code, pts });
+            });
+
+            // Sort descending
+            scores.sort((a, b) => b.pts - a.pts);
+            const top3 = scores.slice(0, 3);
+
+            // Asignar corona al ganador
+            $(".crown-badge").hide();
+            if (top3[0] && top3[0].pts > 0) {
+                $(`#flag-${top3[0].code} .crown-badge`).show();
+            }
+
+            const $podio = $('<div class="podio-container"></div>');
+            $podio.append('<h1 style="font-size: 5vh; text-shadow: 2px 2px 0 #000; margin-bottom: 40px; color: yellow;">🏆 ¡TIEMPO TERMINADO! 🏆</h1>');
+
+            const $podioFlex = $('<div class="podio-flex"></div>');
+            const order = [1, 0, 2]; // 2nd, 1st, 3rd visually
+            const animationClasses = ["p2", "p1", "p3"];
+
+            order.forEach(idx => {
+                const entry = top3[idx];
+                if (!entry) return;
+
+                const place = idx + 1;
+                let height = '150px';
+                let color = '#C0C0C0';
+                if (place === 1) { height = '220px'; color = '#FFD700'; }
+                if (place === 3) { height = '100px'; color = '#CD7F32'; }
+
+                const $col = $(`
+            <div class="podio-col ${animationClasses[idx]}">
+                <span style="font-size:4vh; font-weight:bold; color:white; text-shadow: 2px 2px 0 #000;">${entry.pts} pts</span>
+                <img src="https://flagcdn.com/w160/${countryIso[entry.code]}.png" style="width:80px; border-radius:4px; margin: 10px 0; box-shadow: 0 0 10px rgba(0,0,0,0.8);">
+                <div style="width:100px; height:${height}; background:${color}; display:flex; justify-content:center; align-items:center; font-size:6vh; font-weight:900; color:black; border-radius:10px 10px 0 0; box-shadow: inset 0 0 20px rgba(0,0,0,0.3);">
+                    ${place}°
+                </div>
+            </div>
+        `);
+                $podioFlex.append($col);
+            });
+
+            $podio.append($podioFlex);
+            $("#zona").append($podio);
+
+            // Reset flags scores after podium (10s espera)
+            setTimeout(() => {
+                $podio.fadeOut(1000, function () {
+                    $(this).remove();
+                    $(".flag-item .counter").text("0");
+                    checkLeader();
+                    iniciarTemporizadorGlobal(); // Reinicia auto-contador
+                });
+            }, 10000);
+        }
+
+        function addPointToFlag(code, amount = 1) {
+            const $flag = $(`#flag-${code}`);
+            if ($flag.length === 0) return;
+
+            const $counter = $flag.find(".counter");
+            let currentScore = parseInt($counter.text(), 10) || 0;
+            $counter.text(currentScore + amount);
+
+            $counter.css("transform", "scale(1.5)");
+            setTimeout(() => $counter.css("transform", "scale(1)"), 200);
+
+            spawnParticles($flag);
+            
+            // Reordenar contenedor
+            const $container = $flag.closest('.flags-container');
+            sortFlagsContainer($container);
+            
+            checkLeader();
+        }
+
+        function sortFlagsContainer($container) {
+            const $items = $container.children(".flag-item");
+            if ($items.length <= 1) return;
+
+            // 1. Guardar posiciones actuales
+            const firstPositions = {};
+            $items.each(function() {
+                firstPositions[$(this).attr("data-code")] = this.getBoundingClientRect().top;
+            });
+
+            // 2. Ordenar en DOM por puntos descendente
+            $items.sort((a, b) => {
+                const ptsA = parseInt($(a).find(".counter").text(), 10) || 0;
+                const ptsB = parseInt($(b).find(".counter").text(), 10) || 0;
+                return ptsB - ptsA;
+            });
+            $container.append($items);
+
+            // 3. Animar con FLIP
+            $items.each(function() {
+                const code = $(this).attr("data-code");
+                const firstTop = firstPositions[code];
+                const lastTop = this.getBoundingClientRect().top;
+                const invert = firstTop - lastTop;
+                
+                if (invert !== 0) {
+                    // Mover a posición antigua sin transición
+                    $(this).css({
+                        transition: 'none',
+                        transform: `translateY(${invert}px)`
+                    });
+
+                    // Forzar reflow
+                    this.offsetHeight;
+
+                    // Mover a nueva posición con transición
+                    $(this).css({
+                        transition: 'transform 0.5s ease-in-out',
+                        transform: 'translateY(0)'
+                    });
+                } else {
+                    $(this).css({
+                        transition: 'none',
+                        transform: 'translateY(0)'
+                    });
+                }
+            });
+        }
+
+        function checkLeader() {
+            let max = 0;
+            let leaderFlags = [];
+
+            $(".flag-item").each(function () {
+                const pts = parseInt($(this).find(".counter").text(), 10) || 0;
+                if (pts > max) {
+                    max = pts;
+                    leaderFlags = [this];
+                } else if (pts === max && max > 0) {
+                    leaderFlags.push(this);
+                }
+            });
+
+            $(".flag-item").removeClass("leader-flag");
+            if (max > 0) {
+                $(leaderFlags).addClass("leader-flag");
+            }
+        }
+
+        function addRandomPoint() {
+            const flags = $(".flag-item");
+            if (flags.length === 0) return;
+            const randomIdx = Math.floor(Math.random() * flags.length);
+            const code = $(flags[randomIdx]).attr("data-code");
+            addPointToFlag(code);
+        }
+
+        function showQuieremeRain(count = 1) {
+            for (let j = 0; j < count; j++) {
+                for (let i = 0; i < 15; i++) {
+                    setTimeout(() => {
+                        const $img = $('<img src="quiereme.png" class="quiereme-item">');
+                        const duration = Math.random() * 2 + 3; // 3 to 5 seconds
+                        $img.css({
+                            left: Math.random() * 90 + 5 + '%',
+                            width: (Math.random() * 40 + 40) + 'px',
+                            animationDuration: duration + 's'
+                        });
+                        $("body").append($img);
+                        setTimeout(() => $img.remove(), duration * 1000);
+                    }, Math.random() * 1000 + (j * 300));
+                }
+            }
+        }
+
+        function showFireworksMVP(nickname) {
+            // Lluvia del nombre
+            for (let i = 0; i < 30; i++) {
+                setTimeout(() => {
+                    const $rain = $(`<div class="mvp-rain-item">${nickname} MVP 🏆</div>`);
+                    $rain.css({
+                        left: Math.random() * 90 + 5 + '%',
+                        top: '-50px'
+                    });
+                    $("body").append($rain);
+                    setTimeout(() => $rain.remove(), 4000);
+                }, i * 150);
+            }
+
+            // Fuegos artificiales
+            const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF'];
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => {
+                    const $fw = $('<div class="firework"></div>');
+                    $fw.css({
+                        left: Math.random() * 80 + 10 + '%',
+                        top: Math.random() * 80 + 10 + '%',
+                        background: colors[Math.floor(Math.random() * colors.length)],
+                        boxShadow: `0 0 20px ${colors[Math.floor(Math.random() * colors.length)]}`
+                    });
+                    $("body").append($fw);
+                    setTimeout(() => $fw.remove(), 1000);
+                }, Math.random() * 3000);
+            }
+        }
+
+        function spawnParticles($el) {
+            const rect = $el.find("img")[0].getBoundingClientRect();
+
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            const emojis = ["⭐", "✨", "💥", "🔥", "⚡"];
+
+            for (let i = 0; i < 20; i++) {
+                const particle = $('<div class="flag-particle"></div>');
+                particle.text(emojis[Math.floor(Math.random() * emojis.length)]);
+                $("body").append(particle);
+
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * 120 + 60;
+                const tx = Math.cos(angle) * velocity;
+                const ty = Math.sin(angle) * velocity;
+
+                particle.css({
+                    left: centerX + 'px',
+                    top: centerY + 'px',
+                    '--tx': tx + 'px',
+                    '--ty': ty + 'px',
+                });
+
+                setTimeout(() => particle.remove(), 800);
+            }
+        }
+
+        // ==== LÓGICA DE OVERLAY Y OBS ====
+        $("#generateOverlayBtn").click(() => {
+            let user = $("#uniqueIdInput").val().trim().replace("@", "");
+            if (!user) {
+                alert("Primero escribe tu @usuario para generar el enlace automático.");
+                return;
+            }
+            let currentPath = window.location.href.split('?')[0];
+            currentPath = currentPath.replace("localhost", "127.0.0.1");
+            let overlayUrl = `${currentPath}?user=${user}&overlay=1&obs=.com`;
+
+            // Abre en una nueva ventana/pestaña como TikTok Chat Reader
+            window.open(overlayUrl, "_blank");
+        });
+
+        // Auto-conectar y Modo Transparente (si viene por URL)
+        $(document).ready(() => {
+            iniciarTemporizadorGlobal(); // Iniciar contador automáticamente
+            $("#leftFlagsContainer, #rightFlagsContainer").css("transform", `scale(0.85)`);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const isOverlay = urlParams.get('overlay');
+            const autoUser = urlParams.get('user');
+
+            if (isOverlay) {
+                // Modo Overlay: oculta video y quita fondos, pero MANTIENE los controles
+                $("body").css("background", "transparent");
+                $("#zona").css("background", "transparent");
+                $("#videoElement").hide();
+                $("#exitFullscreenBtn").hide();
+            }
+
+            // Conexión automática para el enlace de OBS/Live Studio
+            if (autoUser) {
+                $("#uniqueIdInput").val(autoUser);
+                setTimeout(connect, 1500);
+            }
+        });
+
+        // TECLAS DE PRUEBA
+        document.addEventListener("keydown", e => {
+            if (e.key === "w" || e.key === "W") {
+                if (globalTimerInterval) clearInterval(globalTimerInterval);
+                $("#globalAutoTimer").text("00:00");
+                mostrarPodio();
+            }
+            if (e.key === "1") addRandomPoint();
+            if (e.key === "2") mostrarAvisoPais("TEST_USER", "colombia");
+        });
+    </script>
+</body>
+
+</html>
