@@ -763,10 +763,26 @@
             }
         }
 
-        let connection = new TikFinityConnection("ws://127.0.0.1:21213/");
+        // Initialize connection to remote server
+        let connection = new TikFinityConnection("wss://tiktok-chat-reader-nh9k.onrender.com");
 
+        // Connect button handler
         $("#connectButton").click(connect);
         $("#uniqueIdInput").on("keyup", e => { if (e.key === "Enter") connect(); });
+
+        // Define connect function
+        function connect() {
+            const uniqueId = $("#uniqueIdInput").val() || null;
+            connection.connect(uniqueId)
+                .then(res => {
+                    console.log("Conectado a", res);
+                    $("#stateText").text("Conectado: " + (uniqueId || "anon"));
+                })
+                .catch(err => {
+                    console.error(err);
+                    $("#stateText").text("Error: " + err);
+                });
+        }
 
         let camRot = 0;
         let camMirror = false;
@@ -796,8 +812,35 @@
             }
         }
 
+        // Fullscreen handling
+        const exitBtnHtml = '<input type="button" id="exitFullscreenBtn" value="✕" style="display:none;position:fixed;top:10px;right:10px;z-index:1000;background:rgba(0,0,0,0.5);color:white;border:none;padding:5px 10px;cursor:pointer;" />';
+        $('body').append(exitBtnHtml);
+
+        $("#fullscreenButton").click(() => {
+            const zona = document.getElementById('zona');
+            if (zona.requestFullscreen) zona.requestFullscreen();
+            else if (zona.webkitRequestFullscreen) zona.webkitRequestFullscreen();
+            document.body.classList.add('is-fullscreen');
+            $('#exitFullscreenBtn').show();
+        });
+
+        $("#exitFullscreenBtn").click(() => {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            document.body.classList.remove('is-fullscreen');
+            $('#exitFullscreenBtn').hide();
+        });
+
+        // Keep camera transform responsive
         $(window).resize(() => applyCamTransform());
 
+        // Listen for native fullscreen change (Esc key, etc.)
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.body.classList.remove('is-fullscreen');
+                $('#exitFullscreenBtn').hide();
+            }
+        });
         $("#camSettingsBtn").click(() => $("#camSettingsPanel").toggle());
         $("#rotateCamBtn").click(() => { camRot = (camRot + 90) % 360; applyCamTransform(); });
         $("#mirrorCamBtn").click(() => { camMirror = !camMirror; applyCamTransform(); });
