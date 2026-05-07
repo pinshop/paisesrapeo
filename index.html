@@ -632,157 +632,81 @@
     </div>
 
     <script>
-        // CONEXIÓN (TikFinity local WebSocket)
-        class TikFinityConnection {
-            constructor(wsUrl) {
-                this.wsUrl = wsUrl;
-                this.ws = null;
-                this.handlers = {};
-                this.uniqueId = null;
+        // DIRECT CONNECTION (Direct WebSocket without TikFinity wrapper)
+class DirectConnection {
+    constructor(wsUrl) {
+        this.wsUrl = wsUrl;
+        this.ws = null;
+        this.handlers = {};
+        this.uniqueId = null;
+    }
+    on(eventName, handler) {
+        if (!this.handlers[eventName]) this.handlers[eventName] = [];
+        this.handlers[eventName].push(handler);
+    }
+    emit(eventName, payload) {
+        const list = this.handlers[eventName] || [];
+        list.forEach(fn => {
+            try { fn(payload); } catch (e) { console.error(e); }
+        });
+    }
+    connect(uniqueId) {
+        this.uniqueId = uniqueId;
+        return new Promise((resolve, reject) => {
+            try {
+                this.ws = new WebSocket(this.wsUrl);
+            } catch (err) {
+                reject("Unable to open WebSocket.");
+                return;
             }
+            const timeout = setTimeout(() => {
+                reject("Connection timeout.");
+            }, 15000);
+            this.ws.onopen = () => {
+                clearTimeout(timeout);
+                resolve({ roomId: uniqueId || "orender" });
+            };
+            this.ws.onerror = () => {
+                clearTimeout(timeout);
+                reject("WebSocket error.");
+            };
+            this.ws.onmessage = (evt) => {
+                let msg;
+                try { msg = JSON.parse(evt.data); } catch (_) { return; }
+                const eventName = (msg.event || msg.type || msg.eventType || "").toString().toLowerCase();
+                const data = msg.data || msg.payload || msg;
+                if (eventName) this.emit(eventName, data);
+            };
+            this.ws.onclose = () => {
+                this.emit("streamEnd", {});
+            };
+        });
+    }
+}
 
-            on(eventName, eventHandler) {
-                if (!this.handlers[eventName]) this.handlers[eventName] = [];
-                this.handlers[eventName].push(eventHandler);
-            }
+// Initialize connection to remote server
+let connection = new DirectConnection("wss://tiktok-chat-reader-nh9k.onrender.com");
 
-            emitLocal(eventName, payload) {
-                const list = this.handlers[eventName] || [];
-                list.forEach(fn => {
-                    try { fn(payload); } catch (e) { console.error(e); }
-                });
-            }
+// Connect button handler
+$("#connectButton").click(connect);
 
-            connect(uniqueId) {
-                this.uniqueId = uniqueId;
-
-                return new Promise((resolve, reject) => {
-                    try {
-                        this.ws = new WebSocket(this.wsUrl);
-                    } catch (err) {
-                        reject("No se pudo abrir WebSocket de TikFinity.");
-                        return;
-                    }
-
-                    const timeout = setTimeout(() => {
-                        reject("Timeout conectando a TikFinity.");
-                    }, 15000);
-
-                    this.ws.onopen = () => {
-                        // TikFinity suele estar ya conectado desde la app desktop.
-                        // Enviamos mensajes de conexión opcionales por compatibilidad.
-                        const connectMsgs = [
-                            { action: "connect", uniqueId: uniqueId },
-                            { event: "setUniqueId", uniqueId: uniqueId },
-                            { type: "setUniqueId", uniqueId: uniqueId }
-                        ];
-                        connectMsgs.forEach(msg => {
-                            try { this.ws.send(JSON.stringify(msg)); } catch (_) { }
-                        });
-
-                        clearTimeout(timeout);
-                        resolve({ roomId: uniqueId || "tikfinity-local" });
-                    };
-
-                    this.ws.onerror = () => {
-                        clearTimeout(timeout);
-                        reject("Error de conexión con TikFinity. Verifica que la app esté abierta.");
-                    };
-
-                    this.ws.onmessage = (evt) => {
-                        let msg;
-                        try {
-                            msg = JSON.parse(evt.data);
-                        } catch (_) {
-                            return;
-                        }
-
-                        const eventName = (msg.event || msg.type || msg.eventType || "").toString().toLowerCase();
-                        const data = msg.data || msg.payload || msg;
-                        const normalized = this.normalizeEvent(eventName, data);
-                        if (!normalized) return;
-                        this.emitLocal(normalized.name, normalized.data);
-                    };
-
-                    this.ws.onclose = () => {
-                        this.emitLocal("streamEnd", {});
-                    };
-                });
-            }
-
-            normalizeEvent(eventName, data) {
-                const uniqueId = data.uniqueId || data.username || data.user || data.userName || "";
-                const nickname = data.nickname || data.nickName || uniqueId || "Usuario";
-                const profilePictureUrl = data.profilePictureUrl || data.profilePic || data.avatar || "";
-
-                if (eventName.includes("chat") || eventName.includes("comment")) {
-                    return {
-                        name: "chat",
-                        data: {
-                            uniqueId,
-                            nickname,
-                            profilePictureUrl,
-                            comment: data.comment || data.message || data.text || ""
-                        }
-                    };
-                }
-
-                if (eventName.includes("gift")) {
-                    return {
-                        name: "gift",
-                        data: {
-                            uniqueId,
-                            nickname,
-                            profilePictureUrl,
-                            giftId: Number(data.giftId ?? data.gift_id ?? data.id ?? 0),
-                            repeatCount: Number(data.repeatCount ?? data.repeat_count ?? data.count ?? 1),
-                            repeatEnd: Boolean(data.repeatEnd ?? data.repeat_end ?? false)
-                        }
-                    };
-                }
-
-                if (eventName.includes("like")) {
-                    return {
-                        name: "like",
-                        data: {
-                            uniqueId,
-                            likeCount: Number(data.likeCount ?? data.count ?? data.likes ?? 1)
-                        }
-                    };
-                }
-
-                if (eventName.includes("follow")) {
-                    return { name: "follow", data: { uniqueId } };
-                }
-
-                if (eventName.includes("share")) {
-                    return { name: "share", data: { uniqueId } };
-                }
-
-                return null;
-            }
-        }
-
-        // Initialize connection to remote server
-        let connection = new TikFinityConnection("wss://tiktok-chat-reader-nh9k.onrender.com");
-
-        // Connect button handler
-        $("#connectButton").click(connect);
+// Define connect function
+function connect() {
+    const uniqueId = $("#uniqueIdInput").val() || null;
+    connection.connect(uniqueId)
+        .then(res => {
+            console.log("Conectado a", res);
+            $("#stateText").text("Conectado: " + (uniqueId || "anon"));
+        })
+        .catch(err => {
+            console.error(err);
+            $("#stateText").text("Error: " + err);
+        });
+}
         $("#uniqueIdInput").on("keyup", e => { if (e.key === "Enter") connect(); });
 
-        // Define connect function
-        function connect() {
-            const uniqueId = $("#uniqueIdInput").val() || null;
-            connection.connect(uniqueId)
-                .then(res => {
-                    console.log("Conectado a", res);
-                    $("#stateText").text("Conectado: " + (uniqueId || "anon"));
-                })
-                .catch(err => {
-                    console.error(err);
-                    $("#stateText").text("Error: " + err);
-                });
-        }
+
+
 
         let camRot = 0;
         let camMirror = false;
