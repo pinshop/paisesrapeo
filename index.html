@@ -632,16 +632,141 @@
     </div>
 
     <script>
-        // Initialize connection to remote server using Socket.IO
-        let connection = new TikTokIOConnection("https://tiktok-chat-reader2-iays.onrender.com");
+        // CONEXIÓN (TikFinity local WebSocket)
+        class TikFinityConnection {
+            constructor(wsUrl) {
+                this.wsUrl = wsUrl;
+                this.ws = null;
+                this.handlers = {};
+                this.uniqueId = null;
+            }
 
-        $(document).ready(() => {
-            $("#connectButton").click(connect);
-            $("#uniqueIdInput").on("keyup", e => { if (e.key === "Enter") connect(); });
-        });
+            on(eventName, eventHandler) {
+                if (!this.handlers[eventName]) this.handlers[eventName] = [];
+                this.handlers[eventName].push(eventHandler);
+            }
 
+            emitLocal(eventName, payload) {
+                const list = this.handlers[eventName] || [];
+                list.forEach(fn => {
+                    try { fn(payload); } catch (e) { console.error(e); }
+                });
+            }
 
+            connect(uniqueId) {
+                this.uniqueId = uniqueId;
 
+                return new Promise((resolve, reject) => {
+                    try {
+                        this.ws = new WebSocket(this.wsUrl);
+                    } catch (err) {
+                        reject("No se pudo abrir WebSocket de TikFinity.");
+                        return;
+                    }
+
+                    const timeout = setTimeout(() => {
+                        reject("Timeout conectando a TikFinity.");
+                    }, 15000);
+
+                    this.ws.onopen = () => {
+                        // TikFinity suele estar ya conectado desde la app desktop.
+                        // Enviamos mensajes de conexión opcionales por compatibilidad.
+                        const connectMsgs = [
+                            { action: "connect", uniqueId: uniqueId },
+                            { event: "setUniqueId", uniqueId: uniqueId },
+                            { type: "setUniqueId", uniqueId: uniqueId }
+                        ];
+                        connectMsgs.forEach(msg => {
+                            try { this.ws.send(JSON.stringify(msg)); } catch (_) { }
+                        });
+
+                        clearTimeout(timeout);
+                        resolve({ roomId: uniqueId || "tikfinity-local" });
+                    };
+
+                    this.ws.onerror = () => {
+                        clearTimeout(timeout);
+                        reject("Error de conexión con TikFinity. Verifica que la app esté abierta.");
+                    };
+
+                    this.ws.onmessage = (evt) => {
+                        let msg;
+                        try {
+                            msg = JSON.parse(evt.data);
+                        } catch (_) {
+                            return;
+                        }
+
+                        const eventName = (msg.event || msg.type || msg.eventType || "").toString().toLowerCase();
+                        const data = msg.data || msg.payload || msg;
+                        const normalized = this.normalizeEvent(eventName, data);
+                        if (!normalized) return;
+                        this.emitLocal(normalized.name, normalized.data);
+                    };
+
+                    this.ws.onclose = () => {
+                        this.emitLocal("streamEnd", {});
+                    };
+                });
+            }
+
+            normalizeEvent(eventName, data) {
+                const uniqueId = data.uniqueId || data.username || data.user || data.userName || "";
+                const nickname = data.nickname || data.nickName || uniqueId || "Usuario";
+                const profilePictureUrl = data.profilePictureUrl || data.profilePic || data.avatar || "";
+
+                if (eventName.includes("chat") || eventName.includes("comment")) {
+                    return {
+                        name: "chat",
+                        data: {
+                            uniqueId,
+                            nickname,
+                            profilePictureUrl,
+                            comment: data.comment || data.message || data.text || ""
+                        }
+                    };
+                }
+
+                if (eventName.includes("gift")) {
+                    return {
+                        name: "gift",
+                        data: {
+                            uniqueId,
+                            nickname,
+                            profilePictureUrl,
+                            giftId: Number(data.giftId ?? data.gift_id ?? data.id ?? 0),
+                            repeatCount: Number(data.repeatCount ?? data.repeat_count ?? data.count ?? 1),
+                            repeatEnd: Boolean(data.repeatEnd ?? data.repeat_end ?? false)
+                        }
+                    };
+                }
+
+                if (eventName.includes("like")) {
+                    return {
+                        name: "like",
+                        data: {
+                            uniqueId,
+                            likeCount: Number(data.likeCount ?? data.count ?? data.likes ?? 1)
+                        }
+                    };
+                }
+
+                if (eventName.includes("follow")) {
+                    return { name: "follow", data: { uniqueId } };
+                }
+
+                if (eventName.includes("share")) {
+                    return { name: "share", data: { uniqueId } };
+                }
+
+                return null;
+            }
+        }
+
+        let connection = new TikFinityConnection("ws://127.0.0.1:21213/");
+
+        $("#connectButton").click(connect);
+        $("#uniqueIdInput").on("keyup", e => { if (e.key === "Enter") connect(); });
 
         let camRot = 0;
         let camMirror = false;
@@ -671,35 +796,8 @@
             }
         }
 
-        // Fullscreen handling
-        const exitBtnHtml = '<input type="button" id="exitFullscreenBtn" value="✕" style="display:none;position:fixed;top:10px;right:10px;z-index:1000;background:rgba(0,0,0,0.5);color:white;border:none;padding:5px 10px;cursor:pointer;" />';
-        $('body').append(exitBtnHtml);
-
-        $("#fullscreenButton").click(() => {
-            const zona = document.getElementById('zona');
-            if (zona.requestFullscreen) zona.requestFullscreen();
-            else if (zona.webkitRequestFullscreen) zona.webkitRequestFullscreen();
-            document.body.classList.add('is-fullscreen');
-            $('#exitFullscreenBtn').show();
-        });
-
-        $("#exitFullscreenBtn").click(() => {
-            if (document.exitFullscreen) document.exitFullscreen();
-            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-            document.body.classList.remove('is-fullscreen');
-            $('#exitFullscreenBtn').hide();
-        });
-
-        // Keep camera transform responsive
         $(window).resize(() => applyCamTransform());
 
-        // Listen for native fullscreen change (Esc key, etc.)
-        document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement) {
-                document.body.classList.remove('is-fullscreen');
-                $('#exitFullscreenBtn').hide();
-            }
-        });
         $("#camSettingsBtn").click(() => $("#camSettingsPanel").toggle());
         $("#rotateCamBtn").click(() => { camRot = (camRot + 90) % 360; applyCamTransform(); });
         $("#mirrorCamBtn").click(() => { camMirror = !camMirror; applyCamTransform(); });
@@ -793,7 +891,7 @@
             let username = $("#uniqueIdInput").val().trim().replace("@", "");
             if (!username) return alert("Escribe un usuario.");
             $("#stateText").html("Conectando...");
-            connection.connect(username, { enableExtendedGiftInfo: true }).then(state => {
+            connection.connect(username).then(state => {
                 $("#stateText").html(`Conectado → ${state.roomId}`);
             }).catch(err => {
                 $("#stateText").html("Error: " + err);
