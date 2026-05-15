@@ -37,8 +37,10 @@
         }
 
         #stateText {
-            margin-top: 5px;
+            display: inline-block;
+            margin-left: 10px;
             font-size: 14px;
+            font-weight: bold;
         }
 
         #zona {
@@ -577,6 +579,26 @@
                 transform: scale(15);
                 opacity: 0;
             }
+        @keyframes tremble {
+            0% { transform: translateX(-50%) translate(1px, 1px) rotate(0deg); }
+            10% { transform: translateX(-50%) translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translateX(-50%) translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translateX(-50%) translate(3px, 2px) rotate(0deg); }
+            40% { transform: translateX(-50%) translate(1px, -1px) rotate(1deg); }
+            50% { transform: translateX(-50%) translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translateX(-50%) translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translateX(-50%) translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translateX(-50%) translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translateX(-50%) translate(1px, 2px) rotate(0deg); }
+            100% { transform: translateX(-50%) translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .trembling-red {
+            color: #FF0000 !important;
+            text-shadow: 0 0 20px #FF0000, 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000 !important;
+            animation: tremble 0.1s infinite !important;
+            border-color: #FF0000 !important;
+            box-shadow: 0 0 30px #FF0000 !important;
         }
     </style>
 </head>
@@ -587,9 +609,6 @@
         <p>Escribe el <b>@usuario</b> en vivo:</p>
         <input type="text" id="uniqueIdInput" placeholder="@nombre">
         <input type="button" id="connectButton" value="Conectar">
-        <input type="button" id="cameraButton" value="📷">
-        <input type="button" id="camSettingsBtn" value="⚙️">
-        <input type="button" id="fullscreenButton" value="⤢">
         <input type="button" id="generateOverlayBtn" value="🔗 Generar Overlay">
         <label style="margin-left: 10px;">Tamaño banderas: <input type="range" id="flagsScale" min="0.5" max="3"
                 step="0.1" value="0.85"></label>
@@ -600,7 +619,7 @@
             <option value="30">30 min</option>
         </select>
         <input type="button" id="addTimerBtn" value="Agregar contador">
-        <div id="stateText"></div>
+        <span id="stateText"></span>
     </div>
 
     <div id="camSettingsPanel"
@@ -917,7 +936,9 @@
             "uruguay": "uruguay",
             "argentina": "argentina",
             "peru": "peru", "perú": "peru",
-            "paraguay": "paraguay"
+            "paraguay": "paraguay",
+            "españa": "espana", "espana": "espana",
+            "puerto rico": "puertorico", "puertorico": "puertorico"
         };
         const userCountries = {};
 
@@ -925,7 +946,8 @@
             'colombia': 'co', 'guatemala': 'gt', 'mexico': 'mx', 'salvador': 'sv',
             'chile': 'cl', 'nicaragua': 'ni', 'cuba': 'cu', 'dominicana': 'do',
             'ecuador': 'ec', 'venezuela': 've', 'bolivia': 'bo', 'costarica': 'cr',
-            'honduras': 'hn', 'panama': 'pa', 'uruguay': 'uy', 'argentina': 'ar', 'peru': 'pe', 'paraguay': 'py'
+            'honduras': 'hn', 'panama': 'pa', 'uruguay': 'uy', 'argentina': 'ar', 'peru': 'pe', 'paraguay': 'py',
+            'espana': 'es', 'puertorico': 'pr'
         };
 
         function mostrarAvisoPais(nickname, countryName) {
@@ -966,7 +988,7 @@
         // DETECCIÓN DE REGALOS (manejo robusto de ráfagas/progresivo)
         const giftPoints = {
             5655: 1, 7096: 1, 15231: 1, 15232: 1, 5269: 1, 7032: 1, 15933: 1, 5827: 1, 8239: 1,
-            5487: 7,
+            5487: 5, 15100: 5,
             7934: 20, 5658: 20,
             14488: 32, 5879: 30,
             5582: 120, 12988: 120, 5660: 120, 6427: 100, 7569: 120,
@@ -992,7 +1014,9 @@
             5827: 'uruguay',
             19446: 'argentina',
             13651: 'peru',
-            58485: 'paraguay'
+            58485: 'paraguay',
+            5487: 'espana',
+            15100: 'puertorico'
         };
 
         connection.on("gift", data => {
@@ -1005,6 +1029,12 @@
 
             if (deltaCount > 0) {
                 giftProgress[key] = repeatCount;
+                
+                // Clear state after 3 seconds of inactivity to avoid stuck single/high-value gifts (30pts, 100pts)
+                if (window['giftTimeout_' + key]) clearTimeout(window['giftTimeout_' + key]);
+                window['giftTimeout_' + key] = setTimeout(() => {
+                    delete giftProgress[key];
+                }, 3000);
             }
 
             try {
@@ -1020,7 +1050,8 @@
                     }
 
                     if (deltaCount > 0) {
-                        addPointToFlag(teamCode, deltaCount); // 1 punto por cada unidad de este regalo
+                        const pts = giftPoints[giftId] || 1;
+                        addPointToFlag(teamCode, deltaCount * pts); // suma los puntos correspondientes a este regalo
                     }
                     isSpecificGift = true;
                 }
@@ -1104,8 +1135,8 @@
         });
 
         // === INICIALIZACIÓN BANDERAS ===
-        const leftFlags = ['colombia', 'guatemala', 'mexico', 'salvador', 'chile', 'nicaragua', 'cuba', 'dominicana', 'paraguay'];
-        const rightFlags = ['ecuador', 'venezuela', 'bolivia', 'costarica', 'honduras', 'panama', 'uruguay', 'argentina', 'peru'];
+        const leftFlags = ['colombia', 'guatemala', 'mexico', 'salvador', 'chile', 'nicaragua', 'cuba', 'dominicana', 'paraguay', 'espana'];
+        const rightFlags = ['ecuador', 'venezuela', 'bolivia', 'costarica', 'honduras', 'panama', 'uruguay', 'argentina', 'peru', 'puertorico'];
 
         const leftTeamGifts = {
             'colombia': 'rose',
@@ -1116,7 +1147,8 @@
             'nicaragua': 'glow',
             'cuba': 'freestyle',
             'dominicana': 'oldies',
-            'paraguay': 'star'
+            'paraguay': 'star',
+            'espana': 'finger'
         };
 
         const rightTeamGifts = {
@@ -1128,7 +1160,8 @@
             'panama': 'maracas',
             'uruguay': 'cono',
             'argentina': 'wink',
-            'peru': 'popular'
+            'peru': 'popular',
+            'puertorico': 'wave'
         };
 
         const $leftCol = $("#leftFlagsContainer");
@@ -1171,13 +1204,13 @@
             $("#leftFlagsContainer, #rightFlagsContainer").css("transform", `scale(${$(this).val()})`);
         });
 
-        // CONTADOR GLOBAL AUTOMATICO DE 15 MINUTOS Y PODIO
+        // CONTADOR GLOBAL AUTOMATICO DE 9 MINUTOS Y PODIO
         let globalTimerInterval = null;
-        let globalTimerSeconds = 900; // 15 minutos por defecto
+        let globalTimerSeconds = 540; // 9 minutos por defecto
 
         function iniciarTemporizadorGlobal() {
-            if (globalTimerInterval) clearInterval(globalTimerInterval);
-            globalTimerSeconds = 900;
+            if (globalTimerInterval) clearTimeout(globalTimerInterval);
+            globalTimerSeconds = 540;
 
             let $timerDiv = $("#globalAutoTimer");
             if ($timerDiv.length === 0) {
@@ -1188,17 +1221,34 @@
                 $timerDiv.css({ bottom: '2%', top: 'auto', left: '50%', transform: 'translateX(-50%)', fontSize: '3.5vh', padding: '5px 15px' });
             }
             $timerDiv.text(formatTime(globalTimerSeconds));
+            $timerDiv.removeClass("trembling-red");
 
-            globalTimerInterval = setInterval(() => {
+            function tick() {
                 globalTimerSeconds--;
                 if (globalTimerSeconds <= 0) {
-                    clearInterval(globalTimerInterval);
                     $timerDiv.text("00:00");
+                    $timerDiv.removeClass("trembling-red");
                     mostrarPodio();
-                } else {
-                    $timerDiv.text(formatTime(globalTimerSeconds));
+                    return;
                 }
-            }, 1000);
+                
+                $timerDiv.text(formatTime(globalTimerSeconds));
+
+                let nextTickMs = 1000;
+                if (globalTimerSeconds <= 3) {
+                    nextTickMs = 5000; // cada segundo dura 5s reales
+                    $timerDiv.addClass("trembling-red");
+                } else if (globalTimerSeconds <= 20) {
+                    nextTickMs = 2000; // cada segundo dura 2s reales
+                    $timerDiv.removeClass("trembling-red");
+                } else {
+                    $timerDiv.removeClass("trembling-red");
+                }
+                
+                globalTimerInterval = setTimeout(tick, nextTickMs);
+            }
+
+            globalTimerInterval = setTimeout(tick, 1000);
         }
 
         // CONTADORES CUSTOMIZADOS
