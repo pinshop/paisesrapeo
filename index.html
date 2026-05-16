@@ -8,6 +8,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="connection.js"></script>
     <style>
         body {
@@ -651,6 +654,18 @@
     </div>
 
     <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfwD9MTER5OXt4CRVteqieY1gVLgz6CYQ",
+            authDomain: "paisesrapeo.firebaseapp.com",
+            databaseURL: "https://paisesrapeo-default-rtdb.firebaseio.com",
+            projectId: "paisesrapeo",
+            storageBucket: "paisesrapeo.firebasestorage.app",
+            messagingSenderId: "228164696308",
+            appId: "1:228164696308:web:0bc36465934a71dc78c6a1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         // CONEXIÓN (TikFinity local WebSocket)
         class TikFinityConnection {
             constructor(wsUrl) {
@@ -755,7 +770,8 @@
                             profilePictureUrl,
                             giftId: Number(data.giftId ?? data.gift_id ?? data.id ?? 0),
                             repeatCount: Number(data.repeatCount ?? data.repeat_count ?? data.count ?? 1),
-                            repeatEnd: Boolean(data.repeatEnd ?? data.repeat_end ?? false)
+                            repeatEnd: Boolean(data.repeatEnd ?? data.repeat_end ?? false),
+                            groupId: data.groupId ?? data.group_id ?? data.comboId ?? data.combo_id ?? data.msgId ?? data.msg_id ?? ""
                         }
                     };
                 }
@@ -989,6 +1005,7 @@
         const giftPoints = {
             5655: 1, 7096: 1, 15231: 1, 15232: 1, 5269: 1, 7032: 1, 15933: 1, 5827: 1, 8239: 1,
             5487: 5, 15100: 5,
+            9947: 10,
             7934: 20, 5658: 20,
             14488: 32, 5879: 30,
             5582: 120, 12988: 120, 5660: 120, 6427: 100, 7569: 120,
@@ -1014,7 +1031,7 @@
             5827: 'uruguay',
             19446: 'argentina',
             13651: 'peru',
-            58485: 'paraguay',
+            9947: 'paraguay',
             5487: 'espana',
             15100: 'puertorico'
         };
@@ -1023,86 +1040,89 @@
             const giftId = Number(data.giftId);
             const repeatCountRaw = Number(data.repeatCount);
             const repeatCount = Number.isFinite(repeatCountRaw) && repeatCountRaw > 0 ? repeatCountRaw : 1;
-            const key = `${data.uniqueId}:${giftId}`;
+            const groupId = data.groupId || "";
+            const key = groupId ? `${data.uniqueId}:${giftId}:${groupId}` : `${data.uniqueId}:${giftId}`;
+            
             const previous = giftProgress[key] || 0;
-            const deltaCount = Math.max(0, repeatCount - previous);
+            let effectivePrevious = previous;
+
+            if (!groupId) {
+                if (repeatCount === 1 && previous > 1) {
+                    effectivePrevious = 0; // Nuevo combo detectado
+                } else if (repeatCount < previous) {
+                    return; // Mensaje desordenado, ignorar para no sumar extras
+                }
+            }
+
+            const deltaCount = Math.max(0, repeatCount - effectivePrevious);
 
             if (deltaCount > 0) {
                 giftProgress[key] = repeatCount;
                 
-                // Clear state after 3 seconds of inactivity to avoid stuck single/high-value gifts (30pts, 100pts)
+                // Limpiar estado después de 5 segundos de inactividad
                 if (window['giftTimeout_' + key]) clearTimeout(window['giftTimeout_' + key]);
                 window['giftTimeout_' + key] = setTimeout(() => {
                     delete giftProgress[key];
-                }, 3000);
+                }, 5000);
+            } else {
+                return; // Si no hay nada que sumar, evitamos procesar y duplicar regalos
             }
 
-            try {
-                let isSpecificGift = false;
+            let isSpecificGift = false;
 
-                // Verificar si es un regalo específico para un equipo
-                if (giftToTeam[giftId]) {
-                    const teamCode = giftToTeam[giftId];
-                    if (userCountries[data.uniqueId] !== teamCode) {
-                        userCountries[data.uniqueId] = teamCode;
-                        const countryName = Object.keys(countryMap).find(k => countryMap[k] === teamCode) || teamCode;
-                        mostrarAvisoPais(data.nickname, countryName);
-                    }
-
-                    if (deltaCount > 0) {
-                        const pts = giftPoints[giftId] || 1;
-                        addPointToFlag(teamCode, deltaCount * pts); // suma los puntos correspondientes a este regalo
-                    }
-                    isSpecificGift = true;
+            // Verificar si es un regalo específico para un equipo
+            if (giftToTeam[giftId]) {
+                const teamCode = giftToTeam[giftId];
+                if (userCountries[data.uniqueId] !== teamCode) {
+                    userCountries[data.uniqueId] = teamCode;
+                    const countryName = Object.keys(countryMap).find(k => countryMap[k] === teamCode) || teamCode;
+                    mostrarAvisoPais(data.nickname, countryName);
                 }
 
-                if (isSpecificGift) return; // Si era regalo específico, ya sumó a su equipo
+                const pts = giftPoints[giftId] || 1;
+                addPointToFlag(teamCode, deltaCount * pts); // suma los puntos correspondientes a este regalo
+                isSpecificGift = true;
+            }
 
-                // Regalos especiales
-                if (giftId === 7168 && deltaCount > 0) {
-                    const myCode = userCountries[data.uniqueId];
-                    if (myCode) {
-                        $(".flag-item").each(function () {
-                            const code = $(this).attr("data-code");
-                            if (code !== myCode) {
-                                $(this).find(".counter").text("0");
-                            }
-                        });
-                        checkLeader();
-                    }
-                    return;
+            if (isSpecificGift) return; // Si era regalo específico, ya sumó a su equipo
+
+            // Regalos especiales
+            if (giftId === 7168) {
+                const myCode = userCountries[data.uniqueId];
+                if (myCode) {
+                    $(".flag-item").each(function () {
+                        const code = $(this).attr("data-code");
+                        if (code !== myCode) {
+                            $(this).find(".counter").text("0");
+                        }
+                    });
+                    checkLeader();
                 }
+                return;
+            }
 
-                if (giftId === 6646 && deltaCount > 0) {
-                    showFireworksMVP(data.nickname);
-                    return;
-                }
+            if (giftId === 6646) {
+                showFireworksMVP(data.nickname);
+                return;
+            }
 
-                if (giftId === 7934 && deltaCount > 0) {
-                    showQuieremeRain(deltaCount);
-                }
+            if (giftId === 7934) {
+                showQuieremeRain(deltaCount);
+            }
 
-                // Fallback para equipos (requiere estar en un club)
-                const code = userCountries[data.uniqueId];
-                if (!code) return;
+            // Fallback para equipos (requiere estar en un club)
+            const code = userCountries[data.uniqueId];
+            if (!code) return;
 
-                const pointsPerGift = giftPoints[giftId];
-                if (!pointsPerGift) return;
+            const pointsPerGift = giftPoints[giftId];
+            if (!pointsPerGift) return;
 
-                if (deltaCount > 0) {
-                    addPointToFlag(code, deltaCount * pointsPerGift);
-                    
-                    if (giftId === 5879 || pointsPerGift === 120) {
-                        new Audio('point.mp3').play().catch(e => console.log("Audio error:", e));
-                    } else if (pointsPerGift > 30) {
-                        new Audio('turbo.mp3').play().catch(e => console.log("Audio error:", e));
-                    }
-                }
-            } finally {
-                // Cuando la plataforma marca fin de ráfaga, reiniciamos estado para próxima ráfaga.
-                if (data.repeatEnd) {
-                    delete giftProgress[key];
-                }
+            addPointToFlag(code, deltaCount * pointsPerGift);
+            
+            if (giftId === 5879 || pointsPerGift === 120) {
+                new Audio('point.mp3').play().catch(e => console.log("Audio error:", e));
+            } else if (pointsPerGift > 30) {
+                new Audio('turbo.mp3').play().catch(e => console.log("Audio error:", e));
             }
         });
 
@@ -1147,7 +1167,7 @@
             'nicaragua': 'glow',
             'cuba': 'freestyle',
             'dominicana': 'oldies',
-            'paraguay': 'star',
+            'paraguay': 'friendship',
             'espana': 'finger'
         };
 
@@ -1525,18 +1545,55 @@
         }
 
         // ==== LÓGICA DE OVERLAY Y OBS ====
-        $("#generateOverlayBtn").click(() => {
+        $("#generateOverlayBtn").click(async () => {
             let user = $("#uniqueIdInput").val().trim().replace("@", "");
             if (!user) {
                 alert("Primero escribe tu @usuario para generar el enlace automático.");
                 return;
             }
-            let currentPath = window.location.href.split('?')[0];
-            currentPath = currentPath.replace("localhost", "127.0.0.1");
-            let overlayUrl = `${currentPath}?user=${user}&overlay=1&obs=.com`;
 
-            // Abre en una nueva ventana/pestaña como TikTok Chat Reader
-            window.open(overlayUrl, "_blank");
+            const btn = $("#generateOverlayBtn");
+            const originalText = btn.val();
+            btn.val("Verificando...").prop("disabled", true);
+
+            try {
+                const snapshot = await db.ref(`licenses/${user}`).once('value');
+                let data = snapshot.val();
+                let isNew = false;
+
+                if (!data) {
+                    data = { tokens: 0, limit: 35000, blocked: false };
+                    isNew = true;
+                }
+
+                if (data.blocked || (data.tokens || 0) >= (data.limit || 35000)) {
+                    alert(`⚠️ LICENCIA DENEGADA para @${user}.\nTokens consumidos: ${data.tokens || 0}\nLímite: ${data.limit || 35000}\nEstado: ${data.blocked ? 'BLOQUEADO' : 'LÍMITE ALCANZADO'}`);
+                    return;
+                }
+
+                // Actualizar lastActive y guardar datos iniciales si es usuario nuevo
+                const updatePayload = {
+                    lastActive: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                if (isNew || typeof data.tokens === 'undefined') updatePayload.tokens = data.tokens || 0;
+                if (isNew || typeof data.limit === 'undefined') updatePayload.limit = data.limit || 35000;
+                if (isNew || typeof data.blocked === 'undefined') updatePayload.blocked = !!data.blocked;
+
+                db.ref(`licenses/${user}`).update(updatePayload);
+
+                let currentPath = window.location.href.split('?')[0];
+                currentPath = currentPath.replace("localhost", "127.0.0.1");
+                let overlayUrl = `${currentPath}?user=${user}&overlay=1&obs=.com`;
+
+                // Abre en una nueva ventana/pestaña como TikTok Chat Reader
+                window.open(overlayUrl, "_blank");
+
+            } catch (err) {
+                alert("Error al verificar licencia: " + err.message);
+            } finally {
+                btn.val(originalText).prop("disabled", false);
+            }
         });
 
         // Auto-conectar y Modo Transparente (si viene por URL)
